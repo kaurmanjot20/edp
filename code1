@@ -1,0 +1,183 @@
+// AM Version
+
+#include <NewPing.h>
+
+// Define Pins
+#define TRIGGER_PIN 13
+#define ECHO_PIN 12
+#define MAX_DISTANCE 200
+#define IR1 A0
+#define IR2 A1
+#define IR_GANTRY 4  // IR sensor for gantry detection
+
+NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE);
+
+// Motor Pins
+int pin5 = 5;
+int pin6 = 6;
+int pin7 = 7;
+int pin8 = 8;
+
+// Variables
+long duration;
+int distance;
+int count = 0;
+unsigned long value = 0;
+long startTime = millis();
+int flag = 1;  // 1 means buggy is moving
+
+void setup() {
+    Serial.begin(9600);
+    pinMode(TRIGGER_PIN, OUTPUT);
+    pinMode(ECHO_PIN, INPUT);
+    pinMode(IR1, INPUT);
+    pinMode(IR2, INPUT);
+    pinMode(IR_GANTRY, INPUT);
+    pinMode(pin5, OUTPUT);
+    pinMode(pin6, OUTPUT);
+    pinMode(pin7, OUTPUT);
+    pinMode(pin8, OUTPUT);
+}
+
+// Movement Functions
+void forward() {
+    digitalWrite(pin5, HIGH);
+    digitalWrite(pin6, LOW);
+    digitalWrite(pin7, LOW);
+    digitalWrite(pin8, HIGH);
+}
+
+void backward() {
+    digitalWrite(pin5, LOW);
+    digitalWrite(pin6, HIGH);
+    digitalWrite(pin7, HIGH);
+    digitalWrite(pin8, LOW);
+}
+
+void clockwise() {
+    digitalWrite(pin5, LOW);
+    digitalWrite(pin6, HIGH);
+    digitalWrite(pin7, LOW);
+    digitalWrite(pin8, HIGH);
+}
+
+void anticlockwise() {
+    digitalWrite(pin5, HIGH);
+    digitalWrite(pin6, LOW);
+    digitalWrite(pin7, HIGH);
+    digitalWrite(pin8, LOW);
+}
+
+void left() {
+    digitalWrite(pin5, HIGH);
+    digitalWrite(pin6, LOW);
+    digitalWrite(pin7, LOW);
+    digitalWrite(pin8, LOW);
+}
+
+void right() {
+    digitalWrite(pin5, LOW);
+    digitalWrite(pin6, LOW);
+    digitalWrite(pin7, LOW);
+    digitalWrite(pin8, HIGH);
+}
+
+void stopBuggy() {
+    digitalWrite(pin5, LOW);
+    digitalWrite(pin6, LOW);
+    digitalWrite(pin7, LOW);
+    digitalWrite(pin8, LOW);
+}
+
+// Function to detect obstacles using Ultrasonic sensor
+void detectObstacle() {
+    distance = sonar.ping_cm();  // Get distance in cm
+    Serial.print("Obstacle Distance: ");
+    Serial.print(distance);
+    Serial.println(" cm");
+
+    if (distance > 0 && distance < 15) {
+        stopBuggy();  // Stop if an obstacle is detected within 15 cm
+        delay(1000);
+    }
+}
+
+// Function to detect gantry stops
+void detectGantry() {
+    if (digitalRead(IR_GANTRY) > 0) {
+        value = pulseIn(IR_GANTRY, HIGH);
+        Serial.print("IR Gantry Value: ");
+        Serial.println(value);
+
+        if (value > 1500 && value < 2000) {
+            Serial.println("Gantry 1 Crossed");
+        } else if (value > 2500 && value < 3000) {
+            Serial.println("Gantry 2 Crossed");
+        } else if (value > 500 && value < 1000) {
+            Serial.println("Gantry 3 Crossed");
+        }
+
+        stopBuggy();
+        delay(1000);
+    }
+}
+
+void loop() {
+    if (Serial.read() == 'L' || flag == 1) {
+        detectGantry();
+        detectObstacle();
+
+        int l = digitalRead(IR1);
+        int r = digitalRead(IR2);
+
+        if (l == 1 && r == 1) {
+            forward();
+        } else if (l == 0 && r == 1) {
+            left();
+        } else if (l == 1 && r == 0) {
+            right();
+        } else if (l == 0 && r == 0) {
+            long endTime = millis();
+            if (endTime - startTime > 500) {
+                count++;
+                Serial.print("Count: ");
+                Serial.println(count);
+                startTime = millis();
+            }
+
+            switch (count) {
+                case 1:
+                    forward();
+                    Serial.println("Moving Forward");
+                    break;
+                case 2:
+                    left();
+                    Serial.println("Turning Left");
+                    delay(500);
+                    break;
+                case 3:
+                    forward();
+                    Serial.println("Moving Forward");
+                    break;
+                case 4:
+                    forward();
+                    Serial.println("Moving Forward");
+                    break;
+                case 5:
+                    left();
+                    Serial.println("Turning Left");
+                    delay(1000);
+                    break;
+                case 6:
+                    forward();
+                    Serial.println("Moving Forward");
+                    break;
+                default:
+                    stopBuggy();
+                    Serial.println("Buggy Stopped");
+                    flag = 0;
+                    break;
+            }
+        }
+    }
+}
