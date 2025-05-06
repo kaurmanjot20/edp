@@ -1,0 +1,164 @@
+const int trigPin = 13;
+const int echoPin = 12;
+
+long duration;
+int distanceCm;
+int prevGantry = 0;
+
+int count = 0;
+int flag = 0;
+
+long st = millis();
+long endt;
+
+
+void setup() {
+  pinMode(5, OUTPUT);
+  pinMode(6, OUTPUT);
+  pinMode(7, OUTPUT);
+  pinMode(8, OUTPUT);
+
+  pinMode(A0, INPUT);
+  pinMode(A1, INPUT);
+
+  pinMode(4, INPUT);
+
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+
+  Serial.begin(9600);
+}
+
+
+void Forward() {
+  digitalWrite(5, HIGH);
+  digitalWrite(6, LOW);
+  digitalWrite(7, LOW);
+  digitalWrite(8, HIGH);
+}
+void Left() {
+  digitalWrite(5, HIGH);
+  digitalWrite(6, LOW);
+  digitalWrite(7, LOW);
+  digitalWrite(8, LOW);
+}
+void Right() {
+  digitalWrite(5, LOW);
+  digitalWrite(6, LOW);
+  digitalWrite(7, LOW);
+  digitalWrite(8, HIGH);
+}
+void Stop() {
+  digitalWrite(5, LOW);
+  digitalWrite(6, LOW);
+  digitalWrite(7, LOW);
+  digitalWrite(8, LOW);
+}
+
+
+int getDistance() {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  duration = pulseIn(echoPin, HIGH);
+  distanceCm = (duration * 0.034) / 2;
+  return distanceCm;
+}
+
+
+void loop() {
+
+  if(Serial.read() == 'T' || flag == 1 ) {
+
+    flag = 1;
+    int d0 = digitalRead(A0);
+    int d1 = digitalRead(A1);
+    
+    if (d1 == 0 && d0 == 0) {
+      Forward();
+      endt = millis();
+
+      if ((endt - st) > 1000) {
+        count++;
+        st = millis();
+      }
+      if (count == 1) {
+        Forward();
+        Serial.print("forward: ");
+        Serial.println(count);
+      }
+      if (count == 2) {
+        Left();
+        Serial.print("left: ");
+        Serial.println(count);
+      }
+      if (count == 3) {
+        Forward();
+        Serial.print("forward: ");
+        Serial.println(count);
+      }
+      if (count == 4) {
+        Forward();
+        Serial.print("forward: ");
+        Serial.println(count);
+      }
+      if (count == 5) {
+        Left();
+        Serial.print("left: ");
+        Serial.println(count);
+        delay(535);
+      }
+      if (count == 6) {
+        Forward();
+        Serial.print("forward: ");
+        Serial.println(count);
+      }
+      if (count > 6) {
+        Stop();
+        Serial.print("stop: ");
+        Serial.println(count);
+        count = 0;
+        flag = 0;
+      }
+    }
+    else if (d0 == 0) {
+      Left();
+    }
+    else if (d1 == 0) {
+      Right();
+    } 
+    else {
+      Forward();
+    }
+
+    int g = pulseIn(4, HIGH, 5000);
+    if (g > 500 && g <= 1500 && prevGantry != 1) {
+      Serial.println("gantry 1");
+      Stop();
+      delay(1000);
+      prevGantry = 1;
+    } 
+    else if (g > 1500 && g <= 2500 && prevGantry != 2) {
+      Serial.println("gantry 2");
+      Stop();
+      delay(1000);
+      prevGantry = 2;
+    } 
+    else if (g > 2500 && g <= 3500 && prevGantry != 3) {
+      Serial.println("gantry 3");
+      Stop();
+      delay(1000);
+      prevGantry = 3;
+    }
+
+  }
+
+  distanceCm = getDistance();
+  if(distanceCm > 0 && distanceCm <= 20) {
+    Stop();
+    delay(1000);
+  }
+
+}
